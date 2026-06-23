@@ -16,10 +16,12 @@ import org.keycloak.models.KeycloakSessionFactory;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 public class TemporalioEventListenerProviderFactory implements EventListenerProviderFactory {
     private final Logger _logger = Logger.getLogger(TemporalioEventListenerProviderFactory.class);
     private WorkflowClient _workflowClient = null;
+    private WorkflowServiceStubs _workflowServiceStubs = null;
     private String _targetHost = "localhost:7233";
     private String _namespace = "default";
     private String _adminTaskQueue = "keycloak-admin-queue";
@@ -45,35 +47,35 @@ public class TemporalioEventListenerProviderFactory implements EventListenerProv
         /* Apply Target Host if specified, otherwise use the default */
         var targetHostConfig = config.get("target-host");
 
-        if (!targetHostConfig.isEmpty()) {
+        if (targetHostConfig != null && !targetHostConfig.isEmpty()) {
             _targetHost = targetHostConfig;
         }
 
         /* Apply Namespace if specified, otherwise use the default */
         var namespaceConfig = config.get("namespace");
 
-        if (!namespaceConfig.isEmpty()) {
+        if (namespaceConfig != null && !namespaceConfig.isEmpty()) {
             _namespace = namespaceConfig;
         }
 
         /* Apply Admin and User Task Queues if specified, otherwise use the default */
-        var _adminTaskQueueConfig = config.get("admin-task-queue");
+        var adminTaskQueueConfig = config.get("admin-task-queue");
 
-        if (!_adminTaskQueueConfig.isEmpty()) {
-            _adminTaskQueue = _adminTaskQueueConfig;
+        if (adminTaskQueueConfig != null && !adminTaskQueueConfig.isEmpty()) {
+            _adminTaskQueue = adminTaskQueueConfig;
         }
 
-        var _userTaskQueueConfig = config.get("user-task-queue");
+        var userTaskQueueConfig = config.get("user-task-queue");
 
-        if (!_userTaskQueueConfig.isEmpty()) {
-            _userTaskQueue = _userTaskQueueConfig;
+        if (userTaskQueueConfig != null && !userTaskQueueConfig.isEmpty()) {
+            _userTaskQueue = userTaskQueueConfig;
         }
 
         /* Apply TLS Cert and Key if specified, otherwise use the default */
         var tlsCertConfig = config.get("mtls-crt-file");
         var tlsKeyConfig = config.get("mtls-key-file");
 
-        if (!(tlsCertConfig.isEmpty() || tlsKeyConfig.isEmpty())) {
+        if ((tlsCertConfig != null && tlsKeyConfig != null) && !(tlsCertConfig.isBlank() || tlsKeyConfig.isBlank())) {
             _tlsCert = tlsCertConfig;
             _tlsKey = tlsKeyConfig;
         }
@@ -81,7 +83,7 @@ public class TemporalioEventListenerProviderFactory implements EventListenerProv
         /* Apply Channel Override Authority if specified, otherwise use the default */
         var channelOverrideAuthorityConfig = config.get("mtls-override-authority");
 
-        if (!channelOverrideAuthorityConfig.isEmpty()) {
+        if (channelOverrideAuthorityConfig != null && !channelOverrideAuthorityConfig.isEmpty()) {
             _channelOverrideAuthority = channelOverrideAuthorityConfig;
         }
 
@@ -109,11 +111,11 @@ public class TemporalioEventListenerProviderFactory implements EventListenerProv
             }
         }
 
-        var workflowServiceStubs = WorkflowServiceStubs
+        _workflowServiceStubs = WorkflowServiceStubs
                 .newServiceStubs(workflowServiceStubsOptionsBuilder.build());
 
         _workflowClient = WorkflowClient
-                .newInstance(workflowServiceStubs, WorkflowClientOptions
+                .newInstance(_workflowServiceStubs, WorkflowClientOptions
                         .newBuilder()
                         .setNamespace(_namespace)
                         .build());
@@ -129,6 +131,10 @@ public class TemporalioEventListenerProviderFactory implements EventListenerProv
     @Override
     public void close() {
         _workflowClient = null;
+        if (!_workflowServiceStubs.isShutdown()) {
+            _workflowServiceStubs.shutdown();
+            _workflowServiceStubs.awaitTermination(60, TimeUnit.SECONDS);
+        }
     }
 
     @Override

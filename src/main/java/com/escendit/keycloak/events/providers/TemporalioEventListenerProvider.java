@@ -69,10 +69,10 @@ public class TemporalioEventListenerProvider implements EventListenerProvider {
                 _logger.debugf("Starting user workflow %s", userEventWorkflowStub);
             }
 
-            userEventWorkflowStub.send(eventParameter);
+            var execution = WorkflowClient.start(userEventWorkflowStub::send, eventParameter);
 
             if (_logger.isDebugEnabled()) {
-                _logger.debugf("Started user workflow (workflowId=%s)", event.getId());
+                _logger.debugf("Started user workflow (workflowId=%s,runId=%s)", execution.getWorkflowId(), execution.getRunId());
             }
         } catch (Exception e) {
             _logger.errorf(e, "Error while starting user workflow %s", userEventWorkflowStub);
@@ -136,13 +136,13 @@ public class TemporalioEventListenerProvider implements EventListenerProvider {
                 _logger.debugf("Starting admin workflow %s", adminEventWorkflowStub);
             }
 
-            adminEventWorkflowStub.send(eventParameter);
+            var execution = WorkflowClient.start(adminEventWorkflowStub::send, eventParameter);
 
             if (_logger.isDebugEnabled()) {
-                _logger.debugf("Started admin workflow (workflowId=%s)", event.getId());
+                _logger.debugf("Started admin workflow (workflowId=%s,runId=%s)", execution.getWorkflowId(), execution.getRunId());
             }
         } catch (Exception e) {
-            _logger.errorf("Error starting admin workflow %s", adminEventWorkflowStub, e);
+            _logger.errorf(e, "Error starting admin workflow %s", adminEventWorkflowStub);
         }
     }
 
