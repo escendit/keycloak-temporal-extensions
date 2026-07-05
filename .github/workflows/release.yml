@@ -1,0 +1,45 @@
+name: Release
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      # Checkout
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Java
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+          cache-dependency-path: '**/pom.xml'
+          server-id: github
+          server-password: MAVEN_TOKEN
+
+      # Set Version
+      - name: Set Version
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.release.tag_name }}"
+          mvn --batch-mode versions:set \
+            -DnewVersion="${TAG#v}" \
+            -DgenerateBackupPoms=false
+
+      # Deploy
+      - name: Deploy Theme
+        env:
+          MAVEN_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mvn --batch-mode deploy
